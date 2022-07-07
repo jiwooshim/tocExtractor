@@ -40,12 +40,16 @@ class tocExtractor():
 
         df_groupby_textAndStyle = df_textAndStyle.groupby('top')
         outlines_list = []
-        for df in df_groupby_textAndStyle:
+        prev_left_positions = []
+        for idx, df in enumerate(df_groupby_textAndStyle):
             if len(df[1]) == 1:
                 continue
             ## Group the page title and page numbers on the same position from the top.
             outlinePageGroup = [row[1]['text'] for row in df[1].iterrows()]
+            if idx+1 == len(df_groupby_textAndStyle) and not all(df[1]['left'].isin(prev_left_positions)):
+                break
             outlines_list.append(outlinePageGroup)
+            prev_left_positions = list(df[1]['left'].values)
         return self.process_outline(outlines_list)
 
     def process_outline(self, raw_outline_list):
