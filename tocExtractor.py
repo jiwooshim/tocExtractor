@@ -12,16 +12,23 @@ import sys
 
 
 class tocExtractor():
-    def pdf_extract_page(self, pdfPath, pageNum, tocPath):
-        if not os.path.exists(tocPath):
-            os.mkdir(tocPath)
-        with open(pdfPath, 'rb') as read_stream:
-            pdf_reader = PyPDF2.PdfFileReader(read_stream)
-            pdf_writer = PyPDF2.PdfFileWriter()
-            pdf_writer.addPage(pdf_reader.getPage(pageNum))
-            ouput = os.path.join(tocPath, f'{Path(pdfPath).stem}_page_{pageNum}')
-            with open(ouput, 'wb') as out:
-                pdf_writer.write(out)
+    def find_toc(self, fdir, common_keyword, toc_keyword_1, toc_keyword_2):
+        doc = fitz.open(fdir)
+        for pageNum in range(doc.pageCount):
+            if pageNum > 10:
+                break
+            page = doc.loadPage(pageNum)
+            pageText = page.getText('text')
+            pageHTML = page.getText('html')
+            if len(pageText) < 15:
+                continue
+            text = pageText.strip()
+            if fuzz.partial_ratio(common_keyword.lower(), text.lower()) > 90 and \
+                    (fuzz.partial_ratio(toc_keyword_1.lower(), text.lower()) > 90 or
+                     fuzz.partial_ratio(toc_keyword_2.lower(), text.lower()) > 90):
+                soup = BeautifulSoup(pageHTML, 'html.parser')
+                return self.extract_toc(soup)
+        return None
 
     def extract_toc(self, soup):
         findAllP = soup.findAll('p')
@@ -33,15 +40,32 @@ class tocExtractor():
 
         df_groupby_textAndStyle = df_textAndStyle.groupby('top')
         outlines_list = []
-        for idx, df in enumerate(df_groupby_textAndStyle):
-            if len(df_groupby_textAndStyle) <= idx + 1:
-                break
+        for df in df_groupby_textAndStyle:
             if len(df[1]) == 1:
                 continue
             ## Group the page title and page numbers on the same position from the top.
             outlinePageGroup = [row[1]['text'] for row in df[1].iterrows()]
             outlines_list.append(outlinePageGroup)
         return self.process_outline(outlines_list)
+
+    def process_outline(self, raw_outline_list):
+        new_outline_list = []
+        for outline in raw_outline_list:
+            title = None
+            pageNum = self.find_integer(outline)
+            englishText = self.find_eng(outline)
+            chineseText = self.find_chi(outline)
+            if pageNum is None:
+                continue
+            elif englishText is None:
+                if chineseText:
+                    title = chineseText
+                else:
+                    continue
+            elif chineseText is None:
+                title = englishText
+            new_outline_list.append([title, pageNum + 1])
+        return new_outline_list
 
     def find_integer(self, input_list):
         for element in input_list:
@@ -74,43 +98,16 @@ class tocExtractor():
             if re.search(r'[\u4e00-\u9fff]+', element):
                 return "".join(re.findall(r'[\u4e00-\u9fff]+', element)).strip()
 
-
-    def process_outline(self, raw_outline_list):
-        new_outline_list = []
-        for outline in raw_outline_list:
-            title = None
-            pageNum = self.find_integer(outline)
-            englishText = self.find_eng(outline)
-            chineseText = self.find_chi(outline)
-            if pageNum is None:
-                continue
-            elif englishText is None:
-                if chineseText:
-                    title = chineseText
-                else:
-                    continue
-            elif chineseText is None:
-                title = englishText
-            new_outline_list.append([title, pageNum + 1])
-        return new_outline_list
-
-    def find_toc(self, fdir, common_keyword, toc_keyword_1, toc_keyword_2):
-        doc = fitz.open(fdir)
-        for pageNum in range(doc.page_count):
-            if pageNum > 10:
-                break
-            page = doc.load_page(pageNum)
-            pageText = page.get_text('text')
-            pageHTML = page.get_text('html')
-            if len(pageText) < 15:
-                continue
-            text = pageText.strip()
-            if fuzz.partial_ratio(common_keyword.lower(), text.lower()) > 90 and \
-                    (fuzz.partial_ratio(toc_keyword_1.lower(), text.lower()) > 90 or
-                     fuzz.partial_ratio(toc_keyword_2.lower(), text.lower()) > 90):
-                soup = BeautifulSoup(pageHTML, 'html.parser')
-                return self.extract_toc(soup)
-        return None
+    def pdf_extract_page(self, pdfPath, pageNum, tocPath):
+        if not os.path.exists(tocPath):
+            os.mkdir(tocPath)
+        with open(pdfPath, 'rb') as read_stream:
+            pdf_reader = PyPDF2.PdfFileReader(read_stream)
+            pdf_writer = PyPDF2.PdfFileWriter()
+            pdf_writer.addPage(pdf_reader.getPage(pageNum))
+            ouput = os.path.join(tocPath, f'{Path(pdfPath).stem}_page_{pageNum}')
+            with open(ouput, 'wb') as out:
+                pdf_writer.write(out)
 
 
 if __name__ == "__main__":
