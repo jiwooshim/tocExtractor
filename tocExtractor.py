@@ -127,4 +127,5 @@ if __name__ == "__main__":
     args = parser.parse_args(sys.argv[1:])
 
     extractor = tocExtractor()
-    extractor.find_toc(args.fileDir, args.common_keyword, args.toc_keyword_1, args.toc_keyword_2)
+    pdf_outline = extractor.find_toc(args.fileDir, args.common_keyword, args.toc_keyword_1, args.toc_keyword_2)
+    print(pdf_outline)
