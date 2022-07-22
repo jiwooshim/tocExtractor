@@ -3,7 +3,7 @@ This script extracts "Table of Contents" from PDF files using keywords. This is 
 
 
 ## Installation 
-Clone this repository, install requirements, and run as a module.
+Clone this repository and install requirements.
 ```
 git clone git@github.com:jiwooshim/tocExtractor.git
 pip install -r requirements.txt
